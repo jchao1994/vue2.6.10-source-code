@@ -142,6 +142,7 @@ export function defineReactive (
 ) {
   const dep = new Dep()
 
+  // Object.freeze()性能优化
   const property = Object.getOwnPropertyDescriptor(obj, key)
   if (property && property.configurable === false) {
     return
