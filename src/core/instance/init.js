@@ -65,6 +65,9 @@ export function initMixin (Vue: Class<Component>) {
       measure(`vue ${vm._name} init`, startTag, endTag)
     }
 
+    // 挂载方式
+    //   1. new Vue({ el: 'xxx' })
+    //   2. new Vue({}).$mount
     if (vm.$options.el) {
       vm.$mount(vm.$options.el) // entry-runtime-with-compiler的$mount
     }

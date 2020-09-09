@@ -57,7 +57,7 @@ export function createRenderer ({
 
   return {
     renderToString (
-      component: Component,
+      component: Component, // new Vue()
       context: any,
       cb: any
     ): ?Promise<string> {

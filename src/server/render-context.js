@@ -65,9 +65,11 @@ export class RenderContext {
     this.next = this.next.bind(this)
   }
 
+  // 渲染上下文的next里会调用write，向html str里写入内容
   next () {
     // eslint-disable-next-line
     while (true) {
+      // renderStates没有数据了，跳出循环
       const lastState = this.renderStates[this.renderStates.length - 1]
       if (isUndef(lastState)) {
         return this.done()
@@ -78,9 +80,9 @@ export class RenderContext {
         case 'Fragment':
           const { children, total } = lastState
           const rendered = lastState.rendered++
-          if (rendered < total) {
+          if (rendered < total) { // 渲染子节点
             return this.renderNode(children[rendered], false, this)
-          } else {
+          } else { // 子节点渲染完毕，补上结束标签，继续下一个next
             this.renderStates.pop()
             if (lastState.type === 'Element') {
               return this.write(lastState.endTag, this.next)

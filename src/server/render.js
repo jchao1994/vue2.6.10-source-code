@@ -29,6 +29,7 @@ const onCompilationError = (err, vm) => {
   throw new Error(`\n\u001b[31m${err}${trace}\u001b[39m\n`)
 }
 
+// 如果没有传入render函数，将template编译成render函数
 const normalizeRender = vm => {
   const { render, template, _scopeId } = vm.$options
   if (isUndef(render)) {
@@ -50,6 +51,7 @@ const normalizeRender = vm => {
   }
 }
 
+// nuxt的asyncData就是serverPrefetch吗???
 function waitForServerPrefetch (vm, resolve, reject) {
   let handlers = vm.$options.serverPrefetch
   if (isDef(handlers)) {
@@ -72,13 +74,13 @@ function waitForServerPrefetch (vm, resolve, reject) {
 }
 
 function renderNode (node, isRoot, context) {
-  if (node.isString) {
+  if (node.isString) { // 渲染字符串节点
     renderStringNode(node, context)
-  } else if (isDef(node.componentOptions)) {
+  } else if (isDef(node.componentOptions)) { // 渲染vue组件
     renderComponent(node, isRoot, context)
-  } else if (isDef(node.tag)) {
+  } else if (isDef(node.tag)) { // 渲染原生dom节点
     renderElement(node, isRoot, context)
-  } else if (isTrue(node.isComment)) {
+  } else if (isTrue(node.isComment)) { // 渲染注释节点
     if (isDef(node.asyncFactory)) {
       // async component
       renderAsyncComponent(node, isRoot, context)
@@ -184,18 +186,21 @@ function renderComponentWithCache (node, isRoot, key, context) {
   renderComponentInner(node, isRoot, context)
 }
 
+// renderComponent不走缓存，就是调用这个函数renderComponentInner
 function renderComponentInner (node, isRoot, context) {
-  const prevActive = context.activeInstance
+  const prevActive = context.activeInstance // activeInstance存储了当前组件的一些信息。如果没有当前组件的话，它就是Vue的根对象
   // expose userContext on vnode
   node.ssrContext = context.userContext
+  // 子组件实例化，走生命周期
   const child = context.activeInstance = createComponentInstanceForVnode(
     node,
     context.activeInstance
   )
+  // 如果没有传入render函数，将template编译成render函数
   normalizeRender(child)
 
   const resolve = () => {
-    const childNode = child._render()
+    const childNode = child._render() // child对应的vnode
     childNode.parent = node
     context.renderStates.push({
       type: 'Component',
@@ -206,6 +211,8 @@ function renderComponentInner (node, isRoot, context) {
 
   const reject = context.done
 
+  // 处理SSR预加载serverPrefetch(在组件实例化(生命周期)之后，render(生成vnode)之前)
+  // 预加载完毕后才生成childVnode并拼接对应dom元素到html字符串上
   waitForServerPrefetch(child, resolve, reject)
 }
 
@@ -276,10 +283,12 @@ function renderAsyncComponent (node, isRoot, context) {
 
 function renderStringNode (el, context) {
   const { write, next } = context
-  if (isUndef(el.children) || el.children.length === 0) {
+  if (isUndef(el.children) || el.children.length === 0) { // 不存在children
     write(el.open + (el.close || ''), next)
-  } else {
+  } else { // 存在children
     const children: Array<VNode> = el.children
+    // 把children塞进renderStates里面，
+    // 写起始标签，并调用next()去渲染children，以及结束标签
     context.renderStates.push({
       type: 'Element',
       children,
@@ -294,7 +303,7 @@ function renderStringNode (el, context) {
 function renderElement (el, isRoot, context) {
   const { write, next } = context
 
-  if (isTrue(isRoot)) {
+  if (isTrue(isRoot)) { // 根节点需要加SSR_ATTR标记
     if (!el.data) el.data = {}
     if (!el.data.attrs) el.data.attrs = {}
     el.data.attrs[SSR_ATTR] = 'true'
@@ -304,13 +313,13 @@ function renderElement (el, isRoot, context) {
     registerComponentForCache(el.fnOptions, write)
   }
 
-  const startTag = renderStartingTag(el, context)
-  const endTag = `</${el.tag}>`
-  if (context.isUnaryTag(el.tag)) {
+  const startTag = renderStartingTag(el, context) // 起始标签  class attrs style directive
+  const endTag = `</${el.tag}>` // 结束标签
+  if (context.isUnaryTag(el.tag)) { // 不需要结束标签
     write(startTag, next)
-  } else if (isUndef(el.children) || el.children.length === 0) {
+  } else if (isUndef(el.children) || el.children.length === 0) { // 没有子节点
     write(startTag + endTag, next)
-  } else {
+  } else { // 有子节点
     const children: Array<VNode> = el.children
     context.renderStates.push({
       type: 'Element',
