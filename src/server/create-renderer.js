@@ -33,6 +33,10 @@ export type RenderOptions = {
   runInNewContext?: boolean | 'once';
 };
 
+
+// const renderer = require('vue-server-renderer').createRenderer({ template: 'xxx' })
+// const renderer = require('vue-server-renderer').createRenderer()
+// createRenderer可以不传template，如果传入template，那么template中必须要有占位符(默认是<!--vue-ssr-outlet-->)
 export function createRenderer ({
   modules = [],
   directives = {},
@@ -46,7 +50,7 @@ export function createRenderer ({
   serializer
 }: RenderOptions = {}): Renderer {
   const render = createRenderFunction(modules, directives, isUnaryTag, cache)
-  const templateRenderer = new TemplateRenderer({
+  const templateRenderer = new TemplateRenderer({ // 负责将占位符替换为html
     template,
     inject,
     shouldPreload,
@@ -61,15 +65,21 @@ export function createRenderer ({
       context: any,
       cb: any
     ): ?Promise<string> {
+      // renderToString(app, context, (err, html) => {})
+      // renderToString(app, (err, html) => {})
+      // 将(err, html) => {}回调统一至cb
       if (typeof context === 'function') {
         cb = context
         context = {}
       }
+      // 绑定renderResourceHints renderState renderScripts renderStyles getPreloadFiles的context
       if (context) {
         templateRenderer.bindRenderFns(context)
       }
 
       // no callback, return Promise
+      // renderToString(app).then(html => {}).catch(err => {})
+      // 等同于renderToString(app, (err, html) => {})
       let promise
       if (!cb) {
         ({ promise, cb } = createPromiseCallback())
@@ -82,6 +92,8 @@ export function createRenderer ({
       }, cb)
       try {
         render(component, write, context, err => {
+          // render-context.js中的done函数
+          // 不断next清空renderStates之后会执行这个回调(不传递参数)，最后执行cb回调传出完整的html，返回给服务端
           if (err) {
             return cb(err)
           }
@@ -89,20 +101,25 @@ export function createRenderer ({
             context.rendered(context)
           }
           if (template) {
+            // 传入template(index.html)，必须带占位符contentPlaceholder(默认是<!--vue-ssr-outlet-->)
+            // 返回完整的html(index.html)，包括<!DOCTYPE html>、html标签、head标签、body标签等(由index.html决定)
             try {
-              const res = templateRenderer.render(result, context)
-              if (typeof res !== 'string') {
+              const res = templateRenderer.render(result, context) // 替换占位符contentPlaceholder(默认是<!--vue-ssr-outlet-->)
+              if (typeof res !== 'string') { // promise
                 // function template returning promise
                 res
                   .then(html => cb(null, html))
                   .catch(cb)
-              } else {
+              } else { // html str
                 cb(null, res)
               }
             } catch (e) {
               cb(e)
             }
           } else {
+            // 不传template，直接返回不完整的html，只有<div id="app" data-server-rendered="true">...</div>，可在外部拼接成完整的html
+            // 如果直接将这个html返回给浏览器，整个html只有html标签、head标签、body标签，其中服务端返回的HTML放在body标签中，没有其他任何内容
+            // <html><head></head><body><div id="app" data-server-rendered="true">...</div></body></html>
             cb(null, result)
           }
         })

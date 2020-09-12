@@ -123,7 +123,7 @@ export function createPatchFunction (backend) {
   let creatingElmInVPre = 0
 
   function createElm ( // 创建真实dom放在vnode.elm上
-    vnode, // 渲染节点
+    vnode, // 渲染节点_vnode，如果组件的根节点是普通元素，那么_vnode也是普通的vnode
     insertedVnodeQueue,
     parentElm,
     refElm,
@@ -143,6 +143,7 @@ export function createPatchFunction (backend) {
     vnode.isRootInsert = !nested // for transition enter check
     // 每个组件的最外层一般都有div标签包裹，这里会直接返回undefined
     // vnode是组件实例化的vnode，在这里组件实例化，并且进行child.$mount，开始新的一轮render、update、patch
+    // 组件vnode没有children，所以这里如果返回true，就直接return
     if (createComponent(vnode, insertedVnodeQueue, parentElm, refElm)) {
       return
     }
@@ -165,7 +166,7 @@ export function createPatchFunction (backend) {
         }
       }
 
-      vnode.elm = vnode.ns // 创建vnode.elm真实dom元素
+      vnode.elm = vnode.ns // 创建vnode.elm真实占位dom元素
         ? nodeOps.createElementNS(vnode.ns, tag)
         : nodeOps.createElement(tag, vnode)
       setScope(vnode) // 设置vnode的scope
@@ -209,6 +210,9 @@ export function createPatchFunction (backend) {
     }
   }
 
+  // 先走_init(完整的生命周期，除了mounted放在了insertedVnodeQueue中触发)初始化组件，得到自己完整的insertedVnodeQueue
+  // 然后走initComponent，把自己的insertedVnodeQueue合并到父节点(上下文context)的insertedVnodeQueue中
+  // insertedVnodeQueue中的vnode顺序是先子后父，因此mounted生命周期函数是先子后父
   function createComponent (vnode, insertedVnodeQueue, parentElm, refElm) {
     let i = vnode.data
     if (isDef(i)) {
@@ -233,18 +237,20 @@ export function createPatchFunction (backend) {
   }
 
   function initComponent (vnode, insertedVnodeQueue) {
-    if (isDef(vnode.data.pendingInsert)) { // 将自己的insertedVnodeQueue和子组件传递过来的insertedVnodeQueue(vnode.data.pendingInsert)合并成一个insertedVnodeQueue
+    // data.pendingInsert存放的是子组件vnode(渲染_vnode)的insertedVnodeQueue
+    // 将子组件的insertedVnodeQueue合并到自己的insertedVnodeQueue上
+    if (isDef(vnode.data.pendingInsert)) {
       insertedVnodeQueue.push.apply(insertedVnodeQueue, vnode.data.pendingInsert)
       vnode.data.pendingInsert = null
     }
     vnode.elm = vnode.componentInstance.$el
-    if (isPatchable(vnode)) {
-      invokeCreateHooks(vnode, insertedVnodeQueue)
-      setScope(vnode)
-    } else {
+    if (isPatchable(vnode)) { // 可patch
+      invokeCreateHooks(vnode, insertedVnodeQueue) // 执行create钩子
+      setScope(vnode) // 设置css的scope id
+    } else { // 不可patch，也就是组件根为空，只注册ref
       // empty component root.
       // skip all element-related modules except for ref (#3455)
-      registerRef(vnode)
+      registerRef(vnode) // 注册Ref
       // make sure to invoke the insert hook
       insertedVnodeQueue.push(vnode)
     }
@@ -297,21 +303,33 @@ export function createPatchFunction (backend) {
     }
   }
 
+  // 是否可patch
   function isPatchable (vnode) {
-    while (vnode.componentInstance) {
+    while (vnode.componentInstance) { // 找到vnode下第一个根标签为普通标签的组件vnode
       vnode = vnode.componentInstance._vnode
     }
     return isDef(vnode.tag)
   }
 
+  // create过程中处理数据的函数 attrs class events props style directives
+  /**
+     * 执行的函数包括下面这么多
+     * cbs = [
+     *  create:[
+     *      updateAttrs, updateClass,
+     *      updateDOMListeners, updateDOMProps,
+     *      updateStyle, create, updateDirectives
+     *  ]
+     * ]
+  **/
   function invokeCreateHooks (vnode, insertedVnodeQueue) {
     for (let i = 0; i < cbs.create.length; ++i) {
       cbs.create[i](emptyNode, vnode)
     }
     i = vnode.data.hook // Reuse variable
     if (isDef(i)) {
-      if (isDef(i.create)) i.create(emptyNode, vnode)
-      if (isDef(i.insert)) insertedVnodeQueue.push(vnode)
+      if (isDef(i.create)) i.create(emptyNode, vnode) // data.hook.create
+      if (isDef(i.insert)) insertedVnodeQueue.push(vnode) // data.hook.insert
     }
   }
 
@@ -576,14 +594,17 @@ export function createPatchFunction (backend) {
     }
   }
 
+  // 延迟组件根节点的插入钩子，在真正插入元素后调用它们
+  // 非根节点，将insert钩子放入父节点(外壳节点)的data.pendingInsert中，延迟触发
+  // 根节点，直接触发insert钩子
   function invokeInsertHook (vnode, queue, initial) { // insertedVnodeQueue
     // delay insert hooks for component root nodes, invoke them after the
     // element is really inserted
     if (isTrue(initial) && isDef(vnode.parent)) { // 初次渲染并且有vnode.parent外壳节点
       vnode.parent.data.pendingInsert = queue
-    } else { // 不满足上述条件，对每个vnode调用insert钩子
+    } else { // 不满足上述条件，对每个vnode立即调用insert钩子
       for (let i = 0; i < queue.length; ++i) {
-        queue[i].data.hook.insert(queue[i])
+        queue[i].data.hook.insert(queue[i]) // 触发insertedVnodeQueue中的每一个vnode的insert钩子，触发mounted生命周期函数
       }
     }
   }
@@ -596,39 +617,56 @@ export function createPatchFunction (backend) {
   const isRenderedModule = makeMap('attrs,class,staticClass,staticStyle,key')
 
   // Note: this is a browser-only function so we can assume elms are DOM nodes.
+  // elm是服务端返回的首屏HTML(只有页面结构(class attrs style directive scopedCSSID)，没有交互逻辑(数据双向绑定、事件绑定等))
+  // vnode是客户端需要挂载的vnode(完整的vnode)
+  // hydrate就是要让vue接管服务端返回的HTML的交互逻辑，实际上就是让vnode与elm对应起来
+  // hydrate混合过程就是让vue进行数据双向绑定并且绑定上事件events，动态管理服务端返回的HTML
+  // 服务端返回HTML的过程中，没有走过$mount，所以组件的生命周期只有beforeCreate和created
   function hydrate (elm, vnode, insertedVnodeQueue, inVPre) {
     let i
     const { tag, data, children } = vnode
     inVPre = inVPre || (data && data.pre)
-    vnode.elm = elm
+    vnode.elm = elm // vnode的elm指向服务端返回的HTML中对应的dom元素
 
+    // 注释节点或是异步组件，设置异步占位
     if (isTrue(vnode.isComment) && isDef(vnode.asyncFactory)) {
       vnode.isAsyncPlaceholder = true
       return true
     }
     // assert node match
+    // 判断elm和vnode是否匹配
     if (process.env.NODE_ENV !== 'production') {
       if (!assertNodeMatch(elm, vnode, inVPre)) {
         return false
       }
     }
+    // 组件vnode tag='vue-component-xxx'
     if (isDef(data)) {
+      // i = data.hook.init
+      // 走组件_init初始化(完整的生命周期，除了mounted放在insertedVnodeQueue中触发)逻辑
+      // 这里会递归遍历所有子组件
       if (isDef(i = data.hook) && isDef(i = i.init)) i(vnode, true /* hydrating */)
+      // 组件实例，在走init钩子的时候会创建组件实例并存放在vnode.componentInstance上
       if (isDef(i = vnode.componentInstance)) {
         // child component. it should have hydrated its own tree.
+        // initComponent会处理vnode的数据，包括attrs class events props style directives
+        // 原生events绑定就在这里
         initComponent(vnode, insertedVnodeQueue)
         return true
       }
     }
+    // 走到这里的全都是普通vnode
+    // 普通vnode 一般tag='div'
+    // children中可能有组件 tag='vue-component-xxx'
     if (isDef(tag)) {
       if (isDef(children)) {
         // empty element, allow client to pick up and populate children
-        if (!elm.hasChildNodes()) {
+        if (!elm.hasChildNodes()) { // 挂载子节点children
           createChildren(vnode, children, insertedVnodeQueue)
         } else {
           // v-html and domProps: innerHTML
-          if (isDef(i = data) && isDef(i = i.domProps) && isDef(i = i.innerHTML)) {
-            if (i !== elm.innerHTML) {
+          if (isDef(i = data) && isDef(i = i.domProps) && isDef(i = i.innerHTML)) { // i = data.domProps.innerHTML
+            if (i !== elm.innerHTML) { // vnode的data.domProps.innerHTML与dom的innerHTML不匹配
               /* istanbul ignore if */
               if (process.env.NODE_ENV !== 'production' &&
                 typeof console !== 'undefined' &&
@@ -641,7 +679,7 @@ export function createPatchFunction (backend) {
               }
               return false
             }
-          } else {
+          } else { // 不存在innerHTML，依次替换子节点并检测子节点是否匹配，不匹配就返回false报错
             // iterate and compare children lists
             let childrenMatch = true
             let childNode = elm.firstChild
@@ -650,10 +688,13 @@ export function createPatchFunction (backend) {
                 childrenMatch = false
                 break
               }
-              childNode = childNode.nextSibling
+              childNode = childNode.nextSibling // 依次匹配每一个dom节点
             }
             // if childNode is not null, it means the actual childNodes list is
             // longer than the virtual children list.
+            // childrenMatch为false => 有单个子节点不匹配
+            // childrenMatch为true，但有childNode => 真实子节点数超过vnode子节点数
+            // 这两种情况均是子节点不匹配
             if (!childrenMatch || childNode) {
               /* istanbul ignore if */
               if (process.env.NODE_ENV !== 'production' &&
@@ -672,6 +713,7 @@ export function createPatchFunction (backend) {
       if (isDef(data)) {
         let fullInvoke = false
         for (const key in data) {
+          // key不是attrs,class,staticClass,staticStyle,key其中之一，也就是当前vnode是组件vnode，跳出循环
           if (!isRenderedModule(key)) {
             fullInvoke = true
             invokeCreateHooks(vnode, insertedVnodeQueue)
@@ -680,10 +722,11 @@ export function createPatchFunction (backend) {
         }
         if (!fullInvoke && data['class']) {
           // ensure collecting deps for deep class bindings for future updates
-          traverse(data['class'])
+          // 响应式
+          traverse(data['class']) 
         }
       }
-    } else if (elm.data !== vnode.text) {
+    } else if (elm.data !== vnode.text) { // 文本节点，替换文本
       elm.data = vnode.text
     }
     return true
@@ -707,6 +750,11 @@ export function createPatchFunction (backend) {
     }
 
     let isInitialPatch = false
+    // insertedVnodeQueue
+    // 每创建一个组件节点或非组件节点的时候就会往insertedVnodeQueue中push当前的vnode，最后对insertedVnodeQueue中所有的vnode调用inserted钩子
+    // 但是子组件首次渲染完毕不会立即调用insertedVnodeQueue中各个Vnode的insert方法，而是先存放在父组件占位vnode的vnode.data.pendingInert上，
+    // 当父组件执行initComponent的时候，将子组件传递过来的insertedVnodeQueue和自身的insertedVnodeQueue进行连接，
+    // 最后调用父组件的insertedVnodeQueue中各个vnode的insert方法
     const insertedVnodeQueue = []
 
     if (isUndef(oldVnode)) { // 老的vnode没有，新的vnode有 // 如果传入的vm.$el为undefined，也就是这里的oldVnode为undefined，那么$mount出来的vm的$el没有进行挂载
@@ -723,12 +771,21 @@ export function createPatchFunction (backend) {
           // mounting to a real element
           // check if this is server-rendered content and if we can perform
           // a successful hydration.
+          // SSR服务端 <div id="app" data-server-rendered="true">...</div>
+          // data-server-rendered标记表示客户端挂载走hydrating激活模式，将服务端返回的HTML激活为由vue动态管理的DOM
+          // 客户端的挂载app.$mount(服务端返回的HTML，也就是<div id="app" data-server-rendered="true">...</div>)
+          // 这里的oldVnode是服务端返回的首屏HTML(只有页面结构，没有交互逻辑)
           if (oldVnode.nodeType === 1 && oldVnode.hasAttribute(SSR_ATTR)) {
             oldVnode.removeAttribute(SSR_ATTR)
             hydrating = true
           }
+          // 用户可以传入hydrating标志需要混合
+          // 服务端渲染会将根节点标志data-server-rendered设为true，patch时会将data-server-rendered移除并设置hydrating为true
+          // hydrating只有首次渲染可能为true，视图更新时hydrating永远为false
           if (isTrue(hydrating)) {
             if (hydrate(oldVnode, vnode, insertedVnodeQueue)) {
+              // 此时已经完成hydrate混合，触发insert钩子，调用每个vnode的mounted生命周期函数
+              // initial设置true，因为hydrate混合只能是首次patch
               invokeInsertHook(vnode, insertedVnodeQueue, true)
               return oldVnode
             } else if (process.env.NODE_ENV !== 'production') {
@@ -743,6 +800,7 @@ export function createPatchFunction (backend) {
           }
           // either not server-rendered, or hydration failed.
           // create an empty node and replace it
+          // SPA或者hydration失败，生成空的oldVnode
           oldVnode = emptyNodeAt(oldVnode)
         }
 
@@ -799,9 +857,10 @@ export function createPatchFunction (backend) {
         }
       }
     }
-
+    
+    // 此时的insertedVnodeQueue已经包括了所有子组件的insertedVnodeQueue
     // 如果是子组件，将insertedVnodeQueue放入vnode.parent.data.pendingInsert等待合并到父组件中
-    // 如果是根组件，对insertedVnodeQueue中的每个vnode调用insert钩子
+    // 如果是根组件，对insertedVnodeQueue中的每个vnode调用insert钩子，触发mounted生命周期函数
     invokeInsertHook(vnode, insertedVnodeQueue, isInitialPatch)
     return vnode.elm
   }

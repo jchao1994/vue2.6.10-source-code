@@ -12,6 +12,7 @@ export type ParsedTemplate = {
   tail: (data: any) => string;
 };
 
+// 返回替换占位符需要的方法
 export function parseTemplate (
   template: string,
   contentPlaceholder?: string = '<!--vue-ssr-outlet-->'

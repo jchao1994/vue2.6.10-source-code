@@ -22,15 +22,17 @@ export function registerRef (vnode: VNodeWithData, isRemoval: ?boolean) {
   if (!isDef(key)) return
 
   const vm = vnode.context
+  // 组件的ref对应组件实例
+  // 普通dom标签的ref对应真实dom元素
   const ref = vnode.componentInstance || vnode.elm
   const refs = vm.$refs
-  if (isRemoval) {
+  if (isRemoval) { // 移除ref
     if (Array.isArray(refs[key])) {
       remove(refs[key], ref)
     } else if (refs[key] === ref) {
       refs[key] = undefined
     }
-  } else {
+  } else { // 添加ref
     if (vnode.data.refInFor) { // refs[key]以数组形式存放
       if (!Array.isArray(refs[key])) {
         refs[key] = [ref]

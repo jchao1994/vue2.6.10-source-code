@@ -15,6 +15,9 @@ const idToTemplate = cached(id => {
 })
 
 const mount = Vue.prototype.$mount
+// app.$mount('#app')
+// SPA直接将app挂载在index.html的<div id="app"></div>上
+// SSR首屏HTML(<div id="app" data-server-rendered="true">...</div>)是由服务端返回的，当客户端首次执行app.$mount('#app')时，首屏已经存在，将app混合挂载到首屏HTML上
 Vue.prototype.$mount = function (
   el?: string | Element,
   hydrating?: boolean

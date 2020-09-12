@@ -61,14 +61,14 @@ export function lifecycleMixin (Vue: Class<Component>) {
     const prevEl = vm.$el
     const prevVnode = vm._vnode
     const restoreActiveInstance = setActiveInstance(vm) // activeInstance = vm 将activeInstance设为vm
-    vm._vnode = vnode
+    vm._vnode = vnode // 组件的内部vnode(非外壳vnode)
     // Vue.prototype.__patch__ is injected in entry points
     // based on the rendering backend used.
     if (!prevVnode) {
-      // initial render // 首次渲染
+      // initial render // 首次渲染，prevVnode实际是真实dom节点
       vm.$el = vm.__patch__(vm.$el, vnode, hydrating, false /* removeOnly */)
     } else {
-      // updates // 再次渲染，更新数据
+      // updates // 再次渲染，更新数据，不会传入hydrating，后续更新与hydrating无关
       vm.$el = vm.__patch__(prevVnode, vnode)
     }
     restoreActiveInstance() // activeInstance = prevActiveInstance 将activeInstance设为原来的activeInstance
@@ -80,7 +80,7 @@ export function lifecycleMixin (Vue: Class<Component>) {
       vm.$el.__vue__ = vm
     }
     // if parent is an HOC, update its $el as well
-    if (vm.$vnode && vm.$parent && vm.$vnode === vm.$parent._vnode) {
+    if (vm.$vnode && vm.$parent && vm.$vnode === vm.$parent._vnode) { // vm.$vnode是vm._vnode的父组件
       vm.$parent.$el = vm.$el
     }
     // updated hook is called by the scheduler to ensure that children are
@@ -194,6 +194,7 @@ export function mountComponent (
   // we set this to vm._watcher inside the watcher's constructor
   // since the watcher's initial patch may call $forceUpdate (e.g. inside child
   // component's mounted hook), which relies on vm._watcher being already defined
+  // new Wathcer时会立即执行一次updateComponent，此时hydrating由用户传入，之后的hydrating就一直是false
   new Watcher(vm, updateComponent, noop, {
     before () {
       if (vm._isMounted && !vm._isDestroyed) {
@@ -205,6 +206,8 @@ export function mountComponent (
 
   // manually mounted instance, call mounted on self
   // mounted is called for render-created child components in its inserted hook
+  // 手动mounted实例???
+  // 正常的mounted生命周期函数在组件的insert钩子中触发
   if (vm.$vnode == null) {
     vm._isMounted = true
     callHook(vm, 'mounted')

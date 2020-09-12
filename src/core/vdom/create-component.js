@@ -64,13 +64,14 @@ const componentVNodeHooks = {
     )
   },
 
+  // 触发组件的mounted生命周期函数
   insert (vnode: MountedComponentVNode) {
-    const { context, componentInstance } = vnode
-    if (!componentInstance._isMounted) {
+    const { context, componentInstance } = vnode // 上下文(也就是这个组件实例的父节点(不是外壳)) 组件实例
+    if (!componentInstance._isMounted) { // 触发insert钩子之后，触发mounted钩子
       componentInstance._isMounted = true
       callHook(componentInstance, 'mounted') // 触发vm.$options.mounted
     }
-    if (vnode.data.keepAlive) {
+    if (vnode.data.keepAlive) { // keepAlive组件
       if (context._isMounted) {
         // vue-router#1212
         // During updates, a kept-alive component's child components may
@@ -184,11 +185,12 @@ export function createComponent ( // 每个组件标签都会编译成_c(xxx)，
   }
 
   // install component management hooks onto the placeholder node
-  installComponentHooks(data) // 将传入的hook和默认的hook进行合并并存放在data.hook中  安装组件钩子函数，等待patch过程时去执行
+  // 将传入的hook和默认的hook(componentVNodeHooks, init prepatch insert destroy)进行合并并存放在data.hook中  安装组件钩子函数，等待patch过程时去执行
+  installComponentHooks(data)
 
   // return a placeholder vnode
   const name = Ctor.options.name || tag
-  const vnode = new VNode( // 实例化组件的vnode，会有data.hook.init/prepatch/insert/destroy
+  const vnode = new VNode( // 实例化组件的vnode，会有data.hook.init/prepatch/insert/destroy，组件vnode是没有children的
     `vue-component-${Ctor.cid}${name ? `-${name}` : ''}`, // tag
     data, undefined, undefined, undefined, context, // data children text elm context
     { Ctor, propsData, listeners, tag, children }, // componentOptions
@@ -211,7 +213,7 @@ export function createComponentInstanceForVnode (
   parent: any, // activeInstance in lifecycle state
 ): Component {
   const options: InternalComponentOptions = {
-    _isComponent: true,
+    _isComponent: true, // 表示该vnode是组件
     _parentVnode: vnode, // 外壳节点
     parent // 父节点，也是当前激活的组件实例
   }
@@ -219,9 +221,9 @@ export function createComponentInstanceForVnode (
   const inlineTemplate = vnode.data.inlineTemplate
   if (isDef(inlineTemplate)) {
     options.render = inlineTemplate.render
-    options.staticRenderFns = inlineTemplate.staticRenderFns
+    options.staticRenderFns = inlineTemplate.staticRenderFnsub
   }
-  return new vnode.componentOptions.Ctor(options) // vnode.componentOptions.Ctor是子组件的构造函数  this._init(options)  子组件实例化
+  return new vnode.componentOptions.Ctor(options) // vnode.componentOptions.Ctor是子组件的构造函数Sub  this._init(options)  子组件实例化
 }
 
 function installComponentHooks (data: VNodeData) {

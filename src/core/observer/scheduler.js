@@ -117,7 +117,7 @@ function flushSchedulerQueue () {
   resetSchedulerState() // 重置queue activatedChildren has waiting flushing
 
   // call component updated and activated hooks
-  callActivatedHooks(activatedQueue) // activated回调？？？
+  callActivatedHooks(activatedQueue) // 回调每一个watcher对应的vm传入的activated方法
   callUpdatedHooks(updatedQueue) // 更新完成，回调每一个watcher对应的vm传入的updated方法
 
   // devtool hook

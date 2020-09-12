@@ -24,19 +24,20 @@ export function createWriteFunction (
   onError: Function
 ): Function {
   let stackDepth = 0
+  // create-renderer.js中的write函数
   const cachedWrite = (text, next) => {
     if (text && cachedWrite.caching) {
       cachedWrite.cacheBuffer[cachedWrite.cacheBuffer.length - 1] += text
     }
-    const waitForNext = write(text, next)
+    const waitForNext = write(text, next) // 拼接text到result中
     if (waitForNext !== true) {
-      if (stackDepth >= MAX_STACK_DEPTH) {
+      if (stackDepth >= MAX_STACK_DEPTH) { // 超过最大栈深度800报错
         defer(() => {
           try { next() } catch (e) {
             onError(e)
           }
         })
-      } else {
+      } else { // 调用next渲染节点，再调用create-renderer.js中的write，向html str里写入内容
         stackDepth++
         next()
         stackDepth--

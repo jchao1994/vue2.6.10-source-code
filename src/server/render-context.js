@@ -65,11 +65,13 @@ export class RenderContext {
     this.next = this.next.bind(this)
   }
 
-  // 渲染上下文的next里会调用write，向html str里写入内容
+  // 渲染上下文的next里会调用create-renderer.js中的write，向html str里写入内容
+  // 不断next，直到renderStates清空，执行done(create-render.js中的回调函数)
   next () {
     // eslint-disable-next-line
     while (true) {
-      // renderStates没有数据了，跳出循环
+      // renderStates在render.js中的renderNode中添加
+      // renderStates没有数据了，跳出循环，执行done(create-render.js中的回调函数)
       const lastState = this.renderStates[this.renderStates.length - 1]
       if (isUndef(lastState)) {
         return this.done()
@@ -80,18 +82,19 @@ export class RenderContext {
         case 'Fragment':
           const { children, total } = lastState
           const rendered = lastState.rendered++
-          if (rendered < total) { // 渲染子节点
+          if (rendered < total) { // 逐个渲染子节点
             return this.renderNode(children[rendered], false, this)
           } else { // 子节点渲染完毕，补上结束标签，继续下一个next
             this.renderStates.pop()
             if (lastState.type === 'Element') {
-              return this.write(lastState.endTag, this.next)
+              return this.write(lastState.endTag, this.next) // create-renderer.js中的write，拼接结束标签到result中，再进行下一个next
             }
           }
           break
         case 'Component':
+          // 子组件及其子组件完全渲染完毕，将context.activeInstance重新设为当前组件实例，继续循环next
           this.renderStates.pop()
-          this.activeInstance = lastState.prevActive
+          this.activeInstance = lastState.prevActive // context.activeInstance始终是当前正在渲染的组件实例
           break
         case 'ComponentWithCache':
           this.renderStates.pop()
@@ -100,12 +103,15 @@ export class RenderContext {
             html: buffer[bufferIndex],
             components: componentBuffer[bufferIndex]
           }
+          // 缓存自己的结果
+          // 子组件缓存自己的结果
+          // 父组件缓存自己及其所有子组件的结果
           this.cache.set(key, result)
-          if (bufferIndex === 0) {
+          if (bufferIndex === 0) { // 缓存根组件，退出缓存模式
             // this is a top-level cached component,
             // exit caching mode.
             this.write.caching = false
-          } else {
+          } else { // 非缓存根组件，将缓存结果添加到父组件的结果中
             // parent component is also being cached,
             // merge self into parent's result
             buffer[bufferIndex - 1] += result.html

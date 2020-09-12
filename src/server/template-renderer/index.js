@@ -39,7 +39,7 @@ type Resource = {
   asType: string;
 };
 
-export default class TemplateRenderer {
+export default class TemplateRenderer { // 负责将占位符替换为html
   options: TemplateRendererOptions;
   inject: boolean;
   parsedTemplate: ParsedTemplate | Function | null;
@@ -57,10 +57,12 @@ export default class TemplateRenderer {
     // as a utility object for rendering assets like preload links and scripts.
     
     const { template } = options
+    // 不传template，那parsedTemplate就是null，不会通过TemplateRenderer来替换占位符
+    // 传入template，才会通过TemplateRenderer来替换占位符
     this.parsedTemplate = template
       ? typeof template === 'string'
         ? parseTemplate(template)
-        : template
+        : template // function
       : null
 
     // function used to serialize initial state JSON
@@ -83,6 +85,7 @@ export default class TemplateRenderer {
     }
   }
 
+  // 绑定renderResourceHints renderState renderScripts renderStyles getPreloadFiles的context
   bindRenderFns (context: Object) {
     const renderer: any = this
     ;['ResourceHints', 'State', 'Scripts', 'Styles'].forEach(type => {
@@ -104,6 +107,7 @@ export default class TemplateRenderer {
       return template(content, context)
     }
 
+    // 替换占位符contentPlaceholder(默认是<!--vue-ssr-outlet-->)
     if (this.inject) {
       return (
         template.head(context) +
@@ -126,6 +130,7 @@ export default class TemplateRenderer {
     }
   }
 
+  // 页面样式
   renderStyles (context: Object): string {
     const initial = this.preloadFiles || []
     const async = this.getUsedAsyncFiles(context) || []
@@ -141,6 +146,7 @@ export default class TemplateRenderer {
     )
   }
 
+  // preload和prefetch资源
   renderResourceHints (context: Object): string {
     return this.renderPreloadLinks(context) + this.renderPrefetchLinks(context)
   }
@@ -205,6 +211,7 @@ export default class TemplateRenderer {
     }
   }
 
+  // 页面state
   renderState (context: Object, options?: Object): string {
     const {
       contextKey = 'state',
@@ -220,6 +227,7 @@ export default class TemplateRenderer {
       : ''
   }
 
+  // 脚本文件引用的内容
   renderScripts (context: Object): string {
     if (this.clientManifest) {
       const initial = this.preloadFiles.filter(({ file }) => isJS(file))

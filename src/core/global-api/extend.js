@@ -16,22 +16,25 @@ export function initExtend (Vue: GlobalAPI) {
   /**
    * Class inheritance
    */
+  // 构造Vue子类
   Vue.extend = function (extendOptions: Object): Function {
     extendOptions = extendOptions || {}
-    const Super = this
+    const Super = this // Vue
     const SuperId = Super.cid
     const cachedCtors = extendOptions._Ctor || (extendOptions._Ctor = {})
+    // 缓存
     if (cachedCtors[SuperId]) {
       return cachedCtors[SuperId]
     }
 
+    // 组件名称
     const name = extendOptions.name || Super.options.name
     if (process.env.NODE_ENV !== 'production' && name) {
       validateComponentName(name) // 校验name是否合法，若不合法，则抛出警告
     }
 
     const Sub = function VueComponent (options) { // 将Sub定义为VueComponent构造函数，同时继承Super的属性和方法
-      this._init(options)
+      this._init(options) // 走Vue的初始化逻辑
     }
     Sub.prototype = Object.create(Super.prototype)
     Sub.prototype.constructor = Sub
@@ -70,11 +73,12 @@ export function initExtend (Vue: GlobalAPI) {
     // keep a reference to the super options at extension time.
     // later at instantiation we can check if Super's options have
     // been updated.
-    Sub.superOptions = Super.options // 父级的options
+    Sub.superOptions = Super.options // 父级的optionss
     Sub.extendOptions = extendOptions // 自己的options
-    Sub.sealedOptions = extend({}, Sub.options) // 合并的options
+    Sub.sealedOptions = extend({}, Sub.options) // 合并的option
 
     // cache constructor
+    // 对Sub做缓存，避免多次执行Vue.extend的时候对同一个子组件重复构造
     cachedCtors[SuperId] = Sub // cachedCtors中的SuperId指向Sub构造函数
     return Sub
   }
