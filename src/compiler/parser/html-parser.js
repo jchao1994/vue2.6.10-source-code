@@ -20,6 +20,7 @@ const ncname = `[a-zA-Z_][\\-\\.0-9_a-zA-Z${unicodeRegExp.source}]*`
 const qnameCapture = `((?:${ncname}\\:)?${ncname})`
 const startTagOpen = new RegExp(`^<${qnameCapture}`)
 const startTagClose = /^\s*(\/?)>/
+// /^<\\/((?:${ncname}\\:)?${ncname})[^>]*>/
 const endTag = new RegExp(`^<\\/${qnameCapture}[^>]*>`)
 const doctype = /^<!DOCTYPE [^>]+>/i
 // #7298: escape - to avoid being passed as HTML comment when inlined in page
@@ -61,15 +62,22 @@ export function parseHTML (html, options) {
   while (html) {
     last = html
     // Make sure we're not in a plaintext content element like script/style
+    // 如果没有lastTag，或者不是纯文本内容元素中：script、style、textarea
     if (!lastTag || !isPlainTextElement(lastTag)) {
+      // 找到第一个<的位置
       let textEnd = html.indexOf('<')
+      // html以<开头
       if (textEnd === 0) {
         // Comment:
+        // 匹配注释
         if (comment.test(html)) {
+          // 找到该注释的结束位置
           const commentEnd = html.indexOf('-->')
 
           if (commentEnd >= 0) {
+            // 需要保留注释，执行 option.comment 方法，ast语法树中就有会comment，否则直接跳过
             if (options.shouldKeepComment) {
+              // text start end
               options.comment(html.substring(4, commentEnd), index, index + commentEnd + 3)
             }
             advance(commentEnd + 3)
@@ -78,6 +86,7 @@ export function parseHTML (html, options) {
         }
 
         // http://en.wikipedia.org/wiki/Conditional_comment#Downlevel-revealed_conditional_comment
+        // 条件注释，直接跳过
         if (conditionalComment.test(html)) {
           const conditionalEnd = html.indexOf(']>')
 
@@ -88,6 +97,7 @@ export function parseHTML (html, options) {
         }
 
         // Doctype:
+        // 匹配<!DOCTYPE html>，直接跳过
         const doctypeMatch = html.match(doctype)
         if (doctypeMatch) {
           advance(doctypeMatch[0].length)
@@ -95,16 +105,21 @@ export function parseHTML (html, options) {
         }
 
         // End tag:
+        // 找到第一个结束标签的位置
         const endTagMatch = html.match(endTag)
+        // html是以结束标签开头的，html跳过结束标签的长度，继续解析html
+        // 从栈中移除对应的起始标签，并且在移除过程中设置对应的父子关系
         if (endTagMatch) {
           const curIndex = index
-          advance(endTagMatch[0].length)
-          parseEndTag(endTagMatch[1], curIndex, index)
+          advance(endTagMatch[0].length) // endTagMatch[0]是匹配endTag的结果
+          parseEndTag(endTagMatch[1], curIndex, index) // endTagMatch[1]是匹配qnameCapture的结果
           continue
         }
 
         // Start tag:
+        // 起始标签
         const startTagMatch = parseStartTag()
+        // html是以起始标签开头的，将起始标签的tag lowerCasedTag attrs start end存入栈中
         if (startTagMatch) {
           handleStartTag(startTagMatch)
           if (shouldIgnoreFirstNewline(startTagMatch.tagName, html)) {
@@ -114,9 +129,10 @@ export function parseHTML (html, options) {
         }
       }
 
+      // html以文本或者空格开头
       let text, rest, next
       if (textEnd >= 0) {
-        rest = html.slice(textEnd)
+        rest = html.slice(textEnd) // 剩余html
         while (
           !endTag.test(rest) &&
           !startTagOpen.test(rest) &&
@@ -124,26 +140,30 @@ export function parseHTML (html, options) {
           !conditionalComment.test(rest)
         ) {
           // < in plain text, be forgiving and treat it as text
+          // 在纯文本中，<当作文本???
           next = rest.indexOf('<', 1)
           if (next < 0) break
           textEnd += next
           rest = html.slice(textEnd)
         }
-        text = html.substring(0, textEnd)
+        text = html.substring(0, textEnd) // 文本内容
       }
 
+      // html中没有<，只剩下文本text
       if (textEnd < 0) {
         text = html
       }
 
+      // html跳过text，更新index
       if (text) {
-        advance(text.length)
+        advance(text.length)text
       }
 
+      // 在currentParent中添加文本child
       if (options.chars && text) {
         options.chars(text, index - text.length, index)
       }
-    } else {
+    } else { // lastTag 为 script、style、textarea
       let endTagLength = 0
       const stackedTag = lastTag.toLowerCase()
       const reStackedTag = reCache[stackedTag] || (reCache[stackedTag] = new RegExp('([\\s\\S]*?)(</' + stackedTag + '[^>]*>)', 'i'))
@@ -157,6 +177,7 @@ export function parseHTML (html, options) {
         if (shouldIgnoreFirstNewline(stackedTag, text)) {
           text = text.slice(1)
         }
+        // 处理文本内容，并使用 options.char 方法
         if (options.chars) {
           options.chars(text)
         }
@@ -164,9 +185,11 @@ export function parseHTML (html, options) {
       })
       index += html.length - rest.length
       html = rest
+      // 解析结束标签，移除栈中对应起始标签并添加父子关系
       parseEndTag(stackedTag, index - endTagLength, index)
     }
 
+    // 全是文本，走options.chars
     if (html === last) {
       options.chars && options.chars(html)
       if (process.env.NODE_ENV !== 'production' && !stack.length && options.warn) {
@@ -179,12 +202,15 @@ export function parseHTML (html, options) {
   // Clean up any remaining tags
   parseEndTag()
 
+  // 为计数index加上n，同时，使html到n个字符以后到位置作为起始位
   function advance (n) {
     index += n
     html = html.substring(n)
   }
 
+  // 解析起始标签
   function parseStartTag () {
+    // 正则匹配获取HTML起始标签
     const start = html.match(startTagOpen)
     if (start) {
       const match = {
@@ -194,6 +220,7 @@ export function parseHTML (html, options) {
       }
       advance(start[0].length)
       let end, attr
+      // 起始标签中的属性都保存到一个数组中
       while (!(end = html.match(startTagClose)) && (attr = html.match(dynamicArgAttribute) || html.match(attribute))) {
         attr.start = index
         advance(attr[0].length)
@@ -209,10 +236,12 @@ export function parseHTML (html, options) {
     }
   }
 
+  // 处理起始标签，将起始标签中的属性提取出来。
   function handleStartTag (match) {
     const tagName = match.tagName
     const unarySlash = match.unarySlash
 
+    // 解析结束标签
     if (expectHTML) {
       if (lastTag === 'p' && isNonPhrasingTag(tagName)) {
         parseEndTag(lastTag)
@@ -224,6 +253,7 @@ export function parseHTML (html, options) {
 
     const unary = isUnaryTag(tagName) || !!unarySlash
 
+    // 解析起始标签的属性名和属性值
     const l = match.attrs.length
     const attrs = new Array(l)
     for (let i = 0; i < l; i++) {
@@ -242,22 +272,26 @@ export function parseHTML (html, options) {
       }
     }
 
+    // 将标签及其属性推入栈中
     if (!unary) {
       stack.push({ tag: tagName, lowerCasedTag: tagName.toLowerCase(), attrs: attrs, start: match.start, end: match.end })
       lastTag = tagName
     }
 
+    // 触发 options.start 方法，创建ast元素并添加到ast语法树root上
     if (options.start) {
       options.start(tagName, attrs, unary, match.start, match.end)
     }
   }
 
+  // 解析结束标签
   function parseEndTag (tagName, start, end) {
     let pos, lowerCasedTagName
     if (start == null) start = index
     if (end == null) end = index
 
     // Find the closest opened tag of the same type
+    // 在栈中找到最近的同类标签
     if (tagName) {
       lowerCasedTagName = tagName.toLowerCase()
       for (pos = stack.length - 1; pos >= 0; pos--) {
@@ -270,6 +304,7 @@ export function parseHTML (html, options) {
       pos = 0
     }
 
+    // 对堆栈中的大于等于 pos 的起始标签使用 options.end 方法
     if (pos >= 0) {
       // Close all the open elements, up the stack
       for (let i = stack.length - 1; i >= pos; i--) {
@@ -288,13 +323,14 @@ export function parseHTML (html, options) {
       }
 
       // Remove the open elements from the stack
+      // 栈中移除open元素并标记为lastTag
       stack.length = pos
       lastTag = pos && stack[pos - 1].tag
-    } else if (lowerCasedTagName === 'br') {
+    } else if (lowerCasedTagName === 'br') { // br标签
       if (options.start) {
         options.start(tagName, [], true, start, end)
       }
-    } else if (lowerCasedTagName === 'p') {
+    } else if (lowerCasedTagName === 'p') { // p标签
       if (options.start) {
         options.start(tagName, [], false, start, end)
       }

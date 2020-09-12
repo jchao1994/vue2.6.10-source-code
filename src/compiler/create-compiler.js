@@ -5,7 +5,11 @@ import { detectErrors } from './error-detector'
 import { createCompileToFunctionFn } from './to-function'
 
 export function createCompilerCreator (baseCompile: Function): Function {
+  // createCompiler主要做了两件事：
+  //   1. 合并options，将平台自有的option与传入的option进行合并
+  //   2. baseCompile,进行模版的基础编译
   return function createCompiler (baseOptions: CompilerOptions) {
+    // 编译，将模板template编译成AST、render函数以及staticRenderFns函数
     function compile (
       template: string,
       options?: CompilerOptions
@@ -37,11 +41,13 @@ export function createCompilerCreator (baseCompile: Function): Function {
           }
         }
         // merge custom modules
+        // 合并modules
         if (options.modules) {
           finalOptions.modules =
             (baseOptions.modules || []).concat(options.modules)
         }
         // merge custom directives
+        // 合并指令
         if (options.directives) {
           finalOptions.directives = extend(
             Object.create(baseOptions.directives || null),
@@ -49,6 +55,7 @@ export function createCompilerCreator (baseCompile: Function): Function {
           )
         }
         // copy other options
+        // 拷贝除modules和directives之外的options
         for (const key in options) {
           if (key !== 'modules' && key !== 'directives') {
             finalOptions[key] = options[key]
@@ -58,7 +65,8 @@ export function createCompilerCreator (baseCompile: Function): Function {
 
       finalOptions.warn = warn
 
-      const compiled = baseCompile(template.trim(), finalOptions) // { ast,render: code.render, staticRenderFns: code.staticRenderFns }
+      // 基础模板编译，得到编译结果 { ast,render: code.render, staticRenderFns: code.staticRenderFns }
+      const compiled = baseCompile(template.trim(), finalOptions)
       if (process.env.NODE_ENV !== 'production') {
         detectErrors(compiled.ast, warn)
       }

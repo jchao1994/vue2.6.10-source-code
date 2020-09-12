@@ -37,7 +37,7 @@ Vue.prototype.$mount = function (
   if (!options.render) { // 如果用户传入了render函数，直接跳过这个compiler步骤
     let template = options.template 
     if (template) { // 将template编译到render函数中，如果没有template，那就将el的outerHTML作为template
-      if (typeof template === 'string') {
+      if (typeof template === 'string') { // template为字符串，一定要带#，表示id选择器，根据id找到对应dom元素重新赋给template
         if (template.charAt(0) === '#') {
           template = idToTemplate(template)
           /* istanbul ignore if */
@@ -48,7 +48,7 @@ Vue.prototype.$mount = function (
             )
           }
         }
-      } else if (template.nodeType) {
+      } else if (template.nodeType) { // template为dom元素，直接取innerHTML
         template = template.innerHTML
       } else {
         if (process.env.NODE_ENV !== 'production') {
@@ -56,7 +56,7 @@ Vue.prototype.$mount = function (
         }
         return this
       }
-    } else if (el) {
+    } else if (el) { // 没有传template，将el的outerHTML赋给template
       template = getOuterHTML(el)
     }
     if (template) {
@@ -73,7 +73,7 @@ Vue.prototype.$mount = function (
         comments: options.comments
       }, this)
       options.render = render // 已经编译完成的render函数
-      options.staticRenderFns = staticRenderFns
+      options.staticRenderFns = staticRenderFns // 编译优化，static静态不需要在VNode更新时进行patch，优化性能
 
       /* istanbul ignore if */
       if (process.env.NODE_ENV !== 'production' && config.performance && mark) {

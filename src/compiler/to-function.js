@@ -18,7 +18,9 @@ function createFunction (code, errors) {
   }
 }
 
+// compile = { ast,render: code.render, staticRenderFns: code.staticRenderFns }
 export function createCompileToFunctionFn (compile: Function): Function {
+  // 闭包内的缓存
   const cache = Object.create(null)
 
   return function compileToFunctions (
@@ -52,11 +54,14 @@ export function createCompileToFunctionFn (compile: Function): Function {
     const key = options.delimiters
       ? String(options.delimiters) + template
       : template
+    // 取缓存
     if (cache[key]) {
       return cache[key]
     }
 
     // compile
+    // 编译的核心代码
+    // baseCompile的编译返回结果{ ast,render: code.render, staticRenderFns: code.staticRenderFns }
     const compiled = compile(template, options)
 
     // check compilation errors/tips
@@ -91,7 +96,7 @@ export function createCompileToFunctionFn (compile: Function): Function {
     const res = {}
     const fnGenErrors = []
     res.render = createFunction(compiled.render, fnGenErrors) // 将编译完的render新代码变为render函数
-    res.staticRenderFns = compiled.staticRenderFns.map(code => {
+    res.staticRenderFns = compiled.staticRenderFns.map(code => { // static编译优化函数
       return createFunction(code, fnGenErrors)
     })
 
@@ -109,6 +114,7 @@ export function createCompileToFunctionFn (compile: Function): Function {
       }
     }
 
+    // 缓存并返回
     return (cache[key] = res)
   }
 }
