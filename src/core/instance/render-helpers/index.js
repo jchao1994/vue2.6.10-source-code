@@ -13,21 +13,21 @@ import { resolveScopedSlots } from './resolve-scoped-slots'
 import { bindDynamicKeys, prependModifier } from './bind-dynamic-keys'
 
 export function installRenderHelpers (target: any) {
-  target._o = markOnce
+  target._o = markOnce // v-once
   target._n = toNumber
   target._s = toString
-  target._l = renderList
-  target._t = renderSlot
+  target._l = renderList // v-for
+  target._t = renderSlot // slot
   target._q = looseEqual
   target._i = looseIndexOf
-  target._m = renderStatic
+  target._m = renderStatic // 静态节点
   target._f = resolveFilter
   target._k = checkKeyCodes
   target._b = bindObjectProps
   target._v = createTextVNode
   target._e = createEmptyVNode
-  target._u = resolveScopedSlots
+  target._u = resolveScopedSlots // scopedSlots作用域插槽
   target._g = bindObjectListeners
-  target._d = bindDynamicKeys
+  target._d = bindDynamicKeys // 合并staticKeys和dynamicKeys
   target._p = prependModifier
 }

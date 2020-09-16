@@ -11,6 +11,9 @@
 
 import { warn } from 'core/util/debug'
 
+// baseObj是staticProps
+// values是dynamicProps
+// 合并staticProps和dynamicProps
 export function bindDynamicKeys (baseObj: Object, values: Array<any>): Object {
   for (let i = 0; i < values.length; i += 2) {
     const key = values[i]

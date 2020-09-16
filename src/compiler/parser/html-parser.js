@@ -330,7 +330,7 @@ export function parseHTML (html, options) {
       if (options.start) {
         options.start(tagName, [], true, start, end)
       }
-    } else if (lowerCasedTagName === 'p') { // p标签
+    } else if (lowerCasedTagName === 'p') { // p标签，为什么要对p标签做单独处理???
       if (options.start) {
         options.start(tagName, [], false, start, end)
       }

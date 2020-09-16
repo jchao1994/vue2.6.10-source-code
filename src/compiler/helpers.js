@@ -16,7 +16,7 @@ export function pluckModuleFunction<F: Function> (
   key: string
 ): Array<F> {
   return modules
-    ? modules.map(m => m[key]).filter(_ => _)
+    ? modules.map(m => m[key]).filter(_ => _) // 过滤掉value为falsy的数据
     : []
 }
 
@@ -39,6 +39,7 @@ export function addRawAttr (el: ASTElement, name: string, value: any, range?: Ra
   el.attrsList.push(rangeSetItem({ name, value }, range))
 }
 
+// 添加指令
 export function addDirective (
   el: ASTElement,
   name: string,
@@ -66,6 +67,7 @@ function prependModifierMarker (symbol: string, name: string, dynamic?: boolean)
     : symbol + name // mark the event as captured
 }
 
+// 处理修饰符，添加事件
 export function addHandler (
   el: ASTElement,
   name: string,
@@ -93,14 +95,14 @@ export function addHandler (
   // normalize click.right and click.middle since they don't actually fire
   // this is technically browser-specific, but at least for now browsers are
   // the only target envs that have right/middle clicks.
-  if (modifiers.right) {
+  if (modifiers.right) { // 右击事件
     if (dynamic) {
       name = `(${name})==='click'?'contextmenu':(${name})`
     } else if (name === 'click') {
       name = 'contextmenu'
       delete modifiers.right
     }
-  } else if (modifiers.middle) {
+  } else if (modifiers.middle) { // 中键事件
     if (dynamic) {
       name = `(${name})==='click'?'mouseup':(${name})`
     } else if (name === 'click') {
@@ -109,25 +111,25 @@ export function addHandler (
   }
 
   // check capture modifier
-  if (modifiers.capture) {
+  if (modifiers.capture) { // 事件捕获
     delete modifiers.capture
-    name = prependModifierMarker('!', name, dynamic)
+    name = prependModifierMarker('!', name, dynamic) // !标记事件捕获capture
   }
-  if (modifiers.once) {
+  if (modifiers.once) { // 只触发一次
     delete modifiers.once
-    name = prependModifierMarker('~', name, dynamic)
+    name = prependModifierMarker('~', name, dynamic) // ~标记once
   }
   /* istanbul ignore if */
-  if (modifiers.passive) {
+  if (modifiers.passive) { // 滚动事件的默认行为 (即滚动行为) 将会立即触发, 而不会等待 `onScroll` 完成
     delete modifiers.passive
-    name = prependModifierMarker('&', name, dynamic)
+    name = prependModifierMarker('&', name, dynamic) // &标记passive
   }
 
   let events
-  if (modifiers.native) {
+  if (modifiers.native) { // dom原生事件
     delete modifiers.native
     events = el.nativeEvents || (el.nativeEvents = {})
-  } else {
+  } else { // $on事件
     events = el.events || (el.events = {})
   }
 
@@ -138,17 +140,20 @@ export function addHandler (
 
   const handlers = events[name]
   /* istanbul ignore if */
-  if (Array.isArray(handlers)) {
+  if (Array.isArray(handlers)) { // 是数组
+    // 重要的放在开头，其余的按序添加在最后
     important ? handlers.unshift(newHandler) : handlers.push(newHandler)
-  } else if (handlers) {
+  } else if (handlers) { // 单个事件，不是数组，变成数组，同时根据important排序
     events[name] = important ? [newHandler, handlers] : [handlers, newHandler]
-  } else {
+  } else { // 不存在，添加单个事件
     events[name] = newHandler
   }
 
+  // 标志plain为false
   el.plain = false
 }
 
+// 解析v-bind获取真实的value
 export function getRawBindingAttr (
   el: ASTElement,
   name: string
@@ -215,6 +220,7 @@ export function getAndRemoveAttrByRegex (
   }
 }
 
+// item上添加start和end
 function rangeSetItem (
   item: any,
   range?: { start?: number, end?: number }

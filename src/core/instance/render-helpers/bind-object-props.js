@@ -28,7 +28,7 @@ export function bindObjectProps (
         this
       )
     } else {
-      if (Array.isArray(value)) {
+      if (Array.isArray(value)) { // 转换成object，扁平化value中的每一个对象的属性
         value = toObject(value)
       }
       let hash
@@ -36,7 +36,7 @@ export function bindObjectProps (
         if (
           key === 'class' ||
           key === 'style' ||
-          isReservedAttribute(key)
+          isReservedAttribute(key) // key ref slot slot-scope is
         ) {
           hash = data
         } else {
@@ -45,8 +45,9 @@ export function bindObjectProps (
             ? data.domProps || (data.domProps = {})
             : data.attrs || (data.attrs = {})
         }
-        const camelizedKey = camelize(key)
-        const hyphenatedKey = hyphenate(key)
+        // hash中没有key就添加
+        const camelizedKey = camelize(key) // 驼峰
+        const hyphenatedKey = hyphenate(key) // -连接
         if (!(camelizedKey in hash) && !(hyphenatedKey in hash)) {
           hash[key] = value[key]
 

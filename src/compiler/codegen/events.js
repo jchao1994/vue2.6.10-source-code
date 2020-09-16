@@ -52,6 +52,7 @@ const modifierCode: { [key: string]: string } = {
   right: genGuard(`'button' in $event && $event.button !== 2`)
 }
 
+// 拼接on和nativeOn事件
 export function genHandlers (
   events: ASTElementHandlers,
   isNative: boolean
@@ -102,11 +103,12 @@ function genHandler (handler: ASTElementHandler | Array<ASTElementHandler>): str
     return `[${handler.map(handler => genHandler(handler)).join(',')}]`
   }
 
+  // 这里的handler都是单个ASTElementHandler
   const isMethodPath = simplePathRE.test(handler.value)
   const isFunctionExpression = fnExpRE.test(handler.value)
   const isFunctionInvocation = simplePathRE.test(handler.value.replace(fnInvokeRE, ''))
 
-  if (!handler.modifiers) {
+  if (!handler.modifiers) { // 没有.修饰符
     if (isMethodPath || isFunctionExpression) {
       return handler.value
     }
@@ -117,36 +119,43 @@ function genHandler (handler: ASTElementHandler | Array<ASTElementHandler>): str
     return `function($event){${
       isFunctionInvocation ? `return ${handler.value}` : handler.value
     }}` // inline statement
-  } else {
+  } else { // 有.修饰符
     let code = ''
     let genModifierCode = ''
     const keys = []
     for (const key in handler.modifiers) {
-      if (modifierCode[key]) {
+      // .stop => $event.stopPropagation()
+      // .left => if (!$event.type.indexOf('key') && _k($event.keyCode, "left", 37, $event.key, ["Left", "ArrowLeft"])) return null
+      if (modifierCode[key]) { // stop prevent self ctrl shift alt meta left middle right
         genModifierCode += modifierCode[key]
         // left/right
+        // left和right同时要添加keyCode
         if (keyCodes[key]) {
           keys.push(key)
         }
-      } else if (key === 'exact') {
+      } else if (key === 'exact') { // exact
         const modifiers: ASTModifiers = (handler.modifiers: any)
+        // if ($event.ctrlKey || $event.shiftKey || $event.altKey || $event.metaKey) return null
         genModifierCode += genGuard(
           ['ctrl', 'shift', 'alt', 'meta']
-            .filter(keyModifier => !modifiers[keyModifier])
+            .filter(keyModifier => !modifiers[keyModifier]) // 过滤掉handler.modifiers中存在的
             .map(keyModifier => `$event.${keyModifier}Key`)
             .join('||')
         )
-      } else {
+      } else { // 其他的修饰符都当作keyCode
         keys.push(key)
       }
     }
+    // 拼接按键keyCode代码
     if (keys.length) {
       code += genKeyFilter(keys)
     }
     // Make sure modifiers like prevent and stop get executed after key filtering
+    // 先拼接按键keyCode代码，再拼接modifierCode代码
     if (genModifierCode) {
       code += genModifierCode
     }
+    // return返回值
     const handlerCode = isMethodPath
       ? `return ${handler.value}($event)`
       : isFunctionExpression
@@ -158,10 +167,12 @@ function genHandler (handler: ASTElementHandler | Array<ASTElementHandler>): str
     if (__WEEX__ && handler.params) {
       return genWeexHandler(handler.params, code + handlerCode)
     }
+    // 拼接整个function
     return `function($event){${code}${handlerCode}}`
   }
 }
 
+// 拼接按键keyCode代码
 function genKeyFilter (keys: Array<string>): string {
   return (
     // make sure the key filters only apply to KeyboardEvents
@@ -174,9 +185,14 @@ function genKeyFilter (keys: Array<string>): string {
 
 function genFilterCode (key: string): string {
   const keyVal = parseInt(key, 10)
+  // key是数字字符串
+  // .11 => $event.keyCode !== 11
   if (keyVal) {
     return `$event.keyCode!==${keyVal}`
   }
+  // key是字符串
+  // .left => _k($event.keyCode, "left", 37, $event.key, ["Left", "ArrowLeft"])
+  // .xxx => _k($event.keyCode, "xxx", undefined, $event.key, undefined))
   const keyCode = keyCodes[key]
   const keyName = keyNames[key]
   return (
