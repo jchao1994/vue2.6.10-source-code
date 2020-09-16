@@ -342,14 +342,14 @@ export function genData (el: ASTElement, state: CodegenState): string {
   // v-bind data wrap
   // 包裹_b
   // _b是src/code/instance/render-helpers/bind-object-props中的bindObjectProps方法
-  // 作用???
+  // data中存放的是v-bind对应的变量，这里将变量对应的值替换到data中，完成修正
   if (el.wrapData) {
     data = el.wrapData(data)
   }
   // v-on data wrap
   // 包裹_g
   // _g是src/code/instance/render-helpers/bind-object-listeners中的bindObjectListeners方法
-  // 作用???
+  // 判断dir.value是否是对象，并且为数据 data.on 合并data和value 的on 事件
   if (el.wrapListeners) {
     data = el.wrapListeners(data)
   }

@@ -7,13 +7,13 @@ import { extend, warn, isObject } from 'core/util/index'
  */
 export function renderSlot (
   name: string,
-  fallback: ?Array<VNode>,
+  fallback: ?Array<VNode>, // children
   props: ?Object,
   bindObject: ?Object
 ): ?Array<VNode> {
   const scopedSlotFn = this.$scopedSlots[name]
   let nodes
-  if (scopedSlotFn) { // scoped slot
+  if (scopedSlotFn) { // scoped slot // 作用域插槽
     props = props || {}
     if (bindObject) {
       if (process.env.NODE_ENV !== 'production' && !isObject(bindObject)) {
@@ -25,12 +25,12 @@ export function renderSlot (
       props = extend(extend({}, bindObject), props)
     }
     nodes = scopedSlotFn(props) || fallback
-  } else {
+  } else { // 普通插槽 具名插槽
     nodes = this.$slots[name] || fallback
   }
 
   const target = props && props.slot
-  if (target) {
+  if (target) { // 如果props里有slot属性，给nodes外面包裹一个template
     return this.$createElement('template', { slot: target }, nodes)
   } else {
     return nodes

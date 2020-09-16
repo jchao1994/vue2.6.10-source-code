@@ -14,10 +14,13 @@ import {
 /**
  * Runtime helper for merging v-bind="object" into a VNode's data.
  */
+// 将 v-bind="object" 转换成 VNode 的 data
+// v-bind 指令的值 object 对象就是参数 value，根据这个 value 对象的值对 data 对象进行修正，最后返回 data 对象
+// data中存放的是v-bind对应的变量，这里将变量对应的值替换到data中，完成修正
 export function bindObjectProps (
   data: any,
   tag: string,
-  value: any,
+  value: any, // dynamicAttrs
   asProp: boolean,
   isSync?: boolean
 ): VNodeData {

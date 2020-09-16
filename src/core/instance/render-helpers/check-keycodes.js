@@ -16,6 +16,7 @@ function isKeyNotMatch<T> (expect: T | Array<T>, actual: T): boolean {
  * exposed as Vue.prototype._k
  * passing in eventKeyName as last argument separately for backwards compat
  */
+// 检查当前按下的键盘按键，若不是指定的键，则返回 true
 export function checkKeyCodes (
   eventKeyCode: number,
   key: string,
