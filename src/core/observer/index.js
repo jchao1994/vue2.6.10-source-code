@@ -44,7 +44,7 @@ export class Observer {
     this.dep = new Dep()
     this.vmCount = 0
     def(value, '__ob__', this) // value.__ob__ = this
-    if (Array.isArray(value)) { // 如果value是数组，将value的7个修改原数组的方法改为自己扩展的方法
+    if (Array.isArray(value)) { // 如果value是数组，将value的7个修改原数组的方法改为自己扩展的方法，深度观察数组中的每一项（对象类型）
       if (hasProto) {
         protoAugment(value, arrayMethods)
       } else {
@@ -119,7 +119,7 @@ export function observe (value: any, asRootData: ?boolean): Observer | void {
     shouldObserve &&
     !isServerRendering() &&
     (Array.isArray(value) || isPlainObject(value)) &&
-    Object.isExtensible(value) &&
+    Object.isExtensible(value) && // Object.freeze(value)之后这里的返回值为false
     !value._isVue
   ) {
     ob = new Observer(value)
@@ -157,7 +157,7 @@ export function defineReactive (
     val = obj[key]
   }
 
-  let childOb = !shallow && observe(val) // 取内层数组和对象的__ob__
+  let childOb = !shallow && observe(val) // 取内层数组和对象的__ob__，递归observe
   Object.defineProperty(obj, key, {
     enumerable: true,
     configurable: true,

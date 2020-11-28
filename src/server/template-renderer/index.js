@@ -57,7 +57,7 @@ export default class TemplateRenderer { // 负责将占位符替换为html
     // as a utility object for rendering assets like preload links and scripts.
     
     const { template } = options
-    // 不传template，那parsedTemplate就是null，不会通过TemplateRenderer来替换占位符
+    // 不传template，那parsedTemplate就是null，不会通过TemplateRenderer来替换占位符，之后的renderToString会报错
     // 传入template，才会通过TemplateRenderer来替换占位符
     this.parsedTemplate = template
       ? typeof template === 'string'
@@ -98,6 +98,7 @@ export default class TemplateRenderer { // 负责将占位符替换为html
   // render synchronously given rendered app content and render context
   render (content: string, context: ?Object): string | Promise<string> {
     const template = this.parsedTemplate
+    // 没有传入template会报错
     if (!template) {
       throw new Error('render cannot be called without a template.')
     }

@@ -65,9 +65,16 @@ export function initMixin (Vue: Class<Component>) {
       measure(`vue ${vm._name} init`, startTag, endTag)
     }
 
-    // 挂载方式
+    // 客户端渲染挂载方式
     //   1. new Vue({ el: 'xxx' })
     //   2. new Vue({}).$mount
+    // 服务端渲染
+    //   这里既没有el也没有$mount，到这里结束，返回经过beforeCreate和created生命周期的vue实例
+    //   这个vue实例之后会作为参数传递给renderer.renderToString方法生成html(带data-server-rendered="true"属性，标记服务端渲染完成)返回给客户端
+    //   const createRenderer = require('vue-server-renderer').createRenderer
+    //   const renderer = createRenderer({ template: require('fs').readFileSync('./index.template.html', 'utf-8') })
+    //   const renderer = require('vue-server-renderer').createRenderer({ template: 'xxx' })
+    //   这里的index.template.html必须要有占位符(默认是<!--vue-ssr-outlet-->)
     if (vm.$options.el) {
       vm.$mount(vm.$options.el) // entry-runtime-with-compiler的$mount
     }

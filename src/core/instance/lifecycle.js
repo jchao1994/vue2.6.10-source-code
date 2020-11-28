@@ -202,6 +202,8 @@ export function mountComponent (
       }
     }
   }, true /* isRenderWatcher */) // render watcher 调用updateComponent方法进行时候首次渲染，同时依赖收集
+  
+  // mount挂载流程结束，也就是hydrating混合结束
   hydrating = false
 
   // manually mounted instance, call mounted on self
