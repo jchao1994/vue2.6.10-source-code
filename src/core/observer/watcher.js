@@ -103,7 +103,9 @@ export default class Watcher {
     let value
     const vm = this.vm
     try {
-      value = this.getter.call(vm, vm) // 取值，会执行对应属性Object.defineProperty的get方法，会收集Dep.target上的依赖watcher
+      // 取值，会执行对应属性Object.defineProperty的get方法，会收集Dep.target上的依赖watcher
+      // 对于use watch来说，这一步是根据key来取值，同时添加key这个依赖，只有key对应的值变化了，才会触发更新，也就是执行watch传入的handler
+      value = this.getter.call(vm, vm)
     } catch (e) {
       if (this.user) {
         handleError(e, vm, `getter for watcher "${this.expression}"`)
@@ -187,6 +189,8 @@ export default class Watcher {
         isObject(value) ||
         this.deep
       ) {
+        // value修改，或者value是引用类型(新老value的引用地址必然还是相同的)，或者有deep选项 都需要触发
+
         // set new value
         const oldValue = this.value
         this.value = value

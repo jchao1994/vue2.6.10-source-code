@@ -422,6 +422,7 @@ export function createPatchFunction (backend) {
     }
   }
 
+  // dom diff的核心
   function updateChildren (parentElm, oldCh, newCh, insertedVnodeQueue, removeOnly) {
     let oldStartIdx = 0
     let newStartIdx = 0
@@ -442,10 +443,12 @@ export function createPatchFunction (backend) {
       checkDuplicateKeys(newCh)
     }
 
+    // 头头 => 尾尾 => 头(老)尾(新) => 尾(老)头(新) => 查找
+    // 用以上5步进行判断的目的是尽可能多得找到不用移动的vnode，直接patch更新，也就是尽可能少得移动真实dom，提高性能
     while (oldStartIdx <= oldEndIdx && newStartIdx <= newEndIdx) {
-      if (isUndef(oldStartVnode)) {
+      if (isUndef(oldStartVnode)) { // 该vnode已经被移动过了，直接跳过
         oldStartVnode = oldCh[++oldStartIdx] // Vnode has been moved left
-      } else if (isUndef(oldEndVnode)) {
+      } else if (isUndef(oldEndVnode)) { // 该vnode已经被移动过了，直接跳过
         oldEndVnode = oldCh[--oldEndIdx]
       } else if (sameVnode(oldStartVnode, newStartVnode)) { // 新老的第一个vnode可复用，更新，同时往后移
         patchVnode(oldStartVnode, newStartVnode, insertedVnodeQueue, newCh, newStartIdx)
@@ -476,7 +479,7 @@ export function createPatchFunction (backend) {
           vnodeToMove = oldCh[idxInOld] // 需要移动的Vnode
           if (sameVnode(vnodeToMove, newStartVnode)) { // key和元素类型均相同，包括两个key都是undefined的情况
             patchVnode(vnodeToMove, newStartVnode, insertedVnodeQueue, newCh, newStartIdx)
-            oldCh[idxInOld] = undefined
+            oldCh[idxInOld] = undefined // 老children中移动过的vnode重置为undefined，在 剩下的循环中 或是 循环之后删除剩余老children 可以跳过这个vnode
             canMove && nodeOps.insertBefore(parentElm, vnodeToMove.elm, oldStartVnode.elm) // 将可复用的Vnode移动至oldStartVnode.elm之前
           } else {
             // same key but different element. treat as new element // key相同，但不是相同类型元素

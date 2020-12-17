@@ -287,6 +287,7 @@ function initMethods (vm: Component, methods: Object) {
   }
 }
 
+// 初始化watch 支持string object array
 function initWatch (vm: Component, watch: Object) {
   for (const key in watch) {
     const handler = watch[key]
@@ -300,17 +301,19 @@ function initWatch (vm: Component, watch: Object) {
   }
 }
 
+// 先处理得到正确的handler和options，然后执行vm.$watch
 function createWatcher (
   vm: Component,
-  expOrFn: string | Function,
-  handler: any,
+  expOrFn: string | Function, // key
+  handler: any, // string(method函数名) | object
   options?: Object
 ) {
   // 处理一下handle和options，再调用vm.$watch
   if (isPlainObject(handler)) {
     options = handler
     handler = handler.handler
-  }
+  }r
+  // 取到对应的handler
   if (typeof handler === 'string') {
     handler = vm[handler]
   }
@@ -344,25 +347,32 @@ export function stateMixin (Vue: Class<Component>) {
   Vue.prototype.$delete = del // 对数组或对象删除key，并触发依赖更新  Vue.delete = del
 
   Vue.prototype.$watch = function ( // initWatch和vm.$watch会调用这个方法创建watcher
-    expOrFn: string | Function,
-    cb: any, // handle
+    expOrFn: string | Function, // key
+    cb: any, // handler
     options?: Object
   ): Function {
     const vm: Component = this
-    if (isPlainObject(cb)) { // 如果cb是对象，将cb处理成handle和options，重新调用vm.$watch(expOrFn, handler, options)
+    // 如果cb是对象，将cb处理成handle和options，重新调用vm.$watch(expOrFn, handler, options)
+    // initWatch过来的已经处理过了，直接vm.$watch过来的还需要进行处理
+    if (isPlainObject(cb)) {
       return createWatcher(vm, expOrFn, cb, options)
     }
     options = options || {}
+    // watch就是user watcher
     options.user = true
+    // new Watch的时候会执行一次get进行依赖收集，同时将最新的值放在watcher.value上
     const watcher = new Watcher(vm, expOrFn, cb, options)
+    // 传入immediate会在绑定的时候直接执行一次
     if (options.immediate) {
       try {
+        // immediate只会传入newVal
         cb.call(vm, watcher.value)
       } catch (error) {
         handleError(error, vm, `callback for immediate watcher "${watcher.expression}"`)
       }
     }
-    return function unwatchFn () { // 通过xxx = vm.$watch监控expOrFn，可以调用xxx.unwatchFn来停止监控
+    // 通过xxx = vm.$watch监控expOrFn，可以调用xxx.unwatchFn来停止监控
+    return function unwatchFn () {
       watcher.teardown()
     }
   }
