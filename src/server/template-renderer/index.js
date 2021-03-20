@@ -213,6 +213,7 @@ export default class TemplateRenderer { // 负责将占位符替换为html
   }
 
   // 页面state
+  // 添加window.__INITIAL_STATE__作为初始state
   renderState (context: Object, options?: Object): string {
     const {
       contextKey = 'state',

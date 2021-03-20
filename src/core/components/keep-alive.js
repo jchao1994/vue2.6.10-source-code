@@ -5,11 +5,13 @@ import { getFirstComponentChild } from 'core/vdom/helpers/index'
 
 type VNodeCache = { [key: string]: ?VNode };
 
+// 获取组件名称
 function getComponentName (opts: ?VNodeComponentOptions): ?string {
   return opts && (opts.Ctor.options.name || opts.tag)
 }
 
-function matches (pattern: string | RegExp | Array<string>, name: string): boolean { // pattern是否包含name
+// pattern是否包含name
+function matches (pattern: string | RegExp | Array<string>, name: string): boolean {
   // pattern 新的include exclude
   // name 老的cache中的组件name
   if (Array.isArray(pattern)) {
@@ -23,6 +25,7 @@ function matches (pattern: string | RegExp | Array<string>, name: string): boole
   return false
 }
 
+// 根据filter规则（包括include和exclude），从缓存中移除对应的组件
 function pruneCache (keepAliveInstance: any, filter: Function) {
   const { cache, keys, _vnode } = keepAliveInstance // 老的
   for (const key in cache) {
@@ -38,6 +41,7 @@ function pruneCache (keepAliveInstance: any, filter: Function) {
   }
 }
 
+// 调用缓存的组件实例对应的$destroy，从缓存中移除
 function pruneCacheEntry (
   cache: VNodeCache,
   key: string,
@@ -65,7 +69,7 @@ export default {
   },
 
   created () {
-    this.cache = Object.create(null) // 创建缓存列表
+    this.cache = Object.create(null) // 创建缓存cache
     this.keys = [] // 创建缓存组件的key列表
   },
 
@@ -85,14 +89,15 @@ export default {
   },
 
   render () {
-    const slot = this.$slots.default // 拿到默认插槽
+    const slot = this.$slots.default // 拿到默认插槽，也就是子组件
     const vnode: VNode = getFirstComponentChild(slot) // 只缓存第一个组件
     const componentOptions: ?VNodeComponentOptions = vnode && vnode.componentOptions
     if (componentOptions) {
       // check pattern
       const name: ?string = getComponentName(componentOptions) // 取出组件的name
       const { include, exclude } = this
-      if ( // include中没有name，或者exclude中有name  不需要缓存
+      // include中没有name，或者exclude中有name  不需要缓存
+      if (
         // not included
         (include && (!name || !matches(include, name))) ||
         // excluded
