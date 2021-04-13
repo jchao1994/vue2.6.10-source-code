@@ -469,6 +469,8 @@ export function createPatchFunction (backend) {
         oldEndVnode = oldCh[--oldEndIdx]
         newStartVnode = newCh[++newStartIdx]
       } else {
+        // 首次走到这里，会生成oldKeyToIdx，也就是剩下的老children的key(key)-value(index)的map结构
+        // 用于让新child找到key相同的老child的index
         if (isUndef(oldKeyToIdx)) oldKeyToIdx = createKeyToOldIdx(oldCh, oldStartIdx, oldEndIdx)
         idxInOld = isDef(newStartVnode.key) // 找到newStartVnode可以复用的老children中Vnode的index
           ? oldKeyToIdx[newStartVnode.key] // newStartVnode有key，就要找到老children中有相同key的Vnode的index
