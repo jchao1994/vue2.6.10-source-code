@@ -6,6 +6,7 @@ const whitespaceRE = /\s+/
  * Add class with compatibility for SVG since classList is not supported on
  * SVG elements in IE
  */
+// 给dom添加class
 export function addClass (el: HTMLElement, cls: ?string) {
   /* istanbul ignore if */
   if (!cls || !(cls = cls.trim())) {

@@ -12,6 +12,7 @@ function locateNode (vnode: VNode): VNodeWithData {
 export default {
   bind (el: any, { value }: VNodeDirective, vnode: VNodeWithData) {
     vnode = locateNode(vnode)
+    // vnode是Transition组件的内部组件，也就是需要执行过渡效果的组件
     const transition = vnode.data && vnode.data.transition
     const originalDisplay = el.__vOriginalDisplay =
       el.style.display === 'none' ? '' : el.style.display
@@ -33,10 +34,12 @@ export default {
     if (transition) {
       vnode.data.show = true
       if (value) {
+        // v-show = true => 执行enter
         enter(vnode, () => {
           el.style.display = el.__vOriginalDisplay
         })
       } else {
+        // v-show = false => 执行leave
         leave(vnode, () => {
           el.style.display = 'none'
         })

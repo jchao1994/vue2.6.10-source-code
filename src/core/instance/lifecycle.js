@@ -21,6 +21,7 @@ import {
 export let activeInstance: any = null
 export let isUpdatingChildComponent: boolean = false
 
+// 更新当前活跃状态的组件实例为 vm，返回恢复原来活跃状态的组件实例的方法
 export function setActiveInstance(vm: Component) {
   const prevActiveInstance = activeInstance
   activeInstance = vm

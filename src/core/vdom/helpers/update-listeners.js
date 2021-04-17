@@ -33,16 +33,20 @@ const normalizeEvent = cached((name: string): {
   }
 })
 
+// 创建 invoker 函数作为返回
+// invoker.fns 存放实际需要执行的函数，在执行 invoker() 时会把 invoker.fns 上的所有函数执行一遍
 export function createFnInvoker (fns: Function | Array<Function>, vm: ?Component): Function {
   function invoker () {
     const fns = invoker.fns
     if (Array.isArray(fns)) {
       const cloned = fns.slice()
       for (let i = 0; i < cloned.length; i++) {
+        // 带错误处理执行cloned[i]
         invokeWithErrorHandling(cloned[i], null, arguments, vm, `v-on handler`)
       }
     } else {
       // return handler return value for single handlers
+      // 带错误处理执行fns
       return invokeWithErrorHandling(fns, null, arguments, vm, `v-on handler`)
     }
   }

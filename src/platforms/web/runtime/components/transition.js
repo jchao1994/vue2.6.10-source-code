@@ -40,10 +40,13 @@ function getRealChild (vnode: ?VNode): ?VNode {
   }
 }
 
+// 获取transition数据
 export function extractTransitionData (comp: Component): Object {
   const data = {}
+  // 组件选项
   const options: ComponentOptions = comp.$options
   // props
+  // transitionProps，包含name 过渡类名等
   for (const key in options.propsData) {
     data[key] = comp[key]
   }
@@ -56,6 +59,7 @@ export function extractTransitionData (comp: Component): Object {
   return data
 }
 
+// 这里一般返回为 undefined
 function placeholder (h: Function, rawChild: VNode): ?VNode {
   if (/\d-keep-alive$/.test(rawChild.tag)) {
     return h('keep-alive', {
@@ -86,12 +90,15 @@ export default {
   abstract: true,
 
   render (h: Function) {
+    // Transition组件只支持单个元素的过渡
+    // 所以这里的children只包含单个元素
     let children: any = this.$slots.default
     if (!children) {
       return
     }
 
     // filter out text nodes (possible whitespaces)
+    // 过滤掉文本节点
     children = children.filter(isNotTextNode)
     /* istanbul ignore if */
     if (!children.length) {
@@ -107,6 +114,7 @@ export default {
       )
     }
 
+    // out-in in-out
     const mode: string = this.mode
 
     // warn invalid mode
@@ -119,18 +127,23 @@ export default {
       )
     }
 
+    // 取出需要过渡的元素vnode
     const rawChild: VNode = children[0]
 
     // if this is a component root node and the component's
     // parent container node also has transition, skip.
+    // 如果当前还有父Transition组件，这里直接返回rawChild就行，过渡功能由父Transition组件来完成
     if (hasParentTransition(this.$vnode)) {
       return rawChild
     }
 
     // apply transition data to child
     // use getRealChild() to ignore abstract components e.g. keep-alive
+    // 跳过抽象组件（如keep-alive组件），取到内部的实际组件vnode
+    // 一般 child 就是指向 rawChild
     const child: ?VNode = getRealChild(rawChild)
     /* istanbul ignore if */
+    // 如果没有内部vnode，直接返回rawChild，说明不需要做过渡效果
     if (!child) {
       return rawChild
     }
@@ -143,20 +156,26 @@ export default {
     // component instance. This key will be used to remove pending leaving nodes
     // during entering.
     const id: string = `__transition-${this._uid}-`
+    // 生成child.key
+    // 相同标签通过key来分开
     child.key = child.key == null
       ? child.isComment
-        ? id + 'comment'
-        : id + child.tag
-      : isPrimitive(child.key)
+        ? id + 'comment' // 注释vnode
+        : id + child.tag // 原生标签vnode
+      : isPrimitive(child.key) // child.key是 string number symbol boolean
         ? (String(child.key).indexOf(id) === 0 ? child.key : id + child.key)
         : child.key
 
+    // 获取transition数据，设置child.data.transition
+    // v-show create activate remove 就是根据vnode.data.transition来实现过渡效果的
     const data: Object = (child.data || (child.data = {})).transition = extractTransitionData(this)
+    // 老的child，其实也是老的自己，因为render函数返回的是child
     const oldRawChild: VNode = this._vnode
     const oldChild: VNode = getRealChild(oldRawChild)
 
     // mark v-show
     // so that the transition module can hand over the control to the directive
+    // 标记child带了v-show
     if (child.data.directives && child.data.directives.some(isVShowDirective)) {
       child.data.show = true
     }
@@ -175,20 +194,37 @@ export default {
       // handle transition mode
       if (mode === 'out-in') {
         // return placeholder node and queue update when leave finishes
+        // 当前元素先进行过渡，完成之后新元素过渡进入
+        // 处理oldChild的 afterLeave
         this._leaving = true
+        // oldChild.data.transition['afterLeave'] = invoker
+        // 执行 invoker 就会调用传入的hook回调，也就是第三个参数
+        // 当前元素leave结束时刻hook，触发新元素强制更新
+        // 实现 当前元素离开过渡完成 => 新元素触发过渡进入
         mergeVNodeHook(oldData, 'afterLeave', () => {
           this._leaving = false
           this.$forceUpdate()
         })
+        // 这里一般返回为 undefined
         return placeholder(h, rawChild)
       } else if (mode === 'in-out') {
+        // 新元素先进行过渡，完成之后当前元素过渡离开
+        // 处理child的 afterEnter enterCancelled，以及oldChild的 delayLeave
         if (isAsyncPlaceholder(child)) {
           return oldRawChild
         }
         let delayedLeave
         const performLeave = () => { delayedLeave() }
+        // child.data.transition['afterEnter'] = invoker
+        // invoker => performLeave
+        // 新元素enter结束时刻hook，触发当前元素performLeave
+        // 实现 新元素进入过渡完成 => 当前元素触发过渡离开
         mergeVNodeHook(data, 'afterEnter', performLeave)
+        // child.data.transition['enterCancelled'] = invoker
+        // invoker => performLeave
         mergeVNodeHook(data, 'enterCancelled', performLeave)
+        // oldChild.data.transition['delayLeave'] = invoker
+        // invoker => leave => { delayedLeave = leave }
         mergeVNodeHook(oldData, 'delayLeave', leave => { delayedLeave = leave })
       }
     }
